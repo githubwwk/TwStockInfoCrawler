@@ -1,0 +1,22 @@
+{
+  "name": "twstockinfo",
+  "version": "1.0.0",
+  "main": "TwStockInfoCrawler.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cheerio": "^0.22.0",
+    "merge": "^1.2.0",
+    "cheerio-tableparser": "^1.0.1",
+    "htmlparser2": "^3.9.2",
+    "node-semaphore": "^0.0.2",
+    "moment": "^2.18.0",
+    "request": "^2.81.0",
+    "wait.for": "^0.6.6"
+  },
+  "devDependencies": {},
+  "description": ""
+}
