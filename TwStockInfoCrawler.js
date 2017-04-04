@@ -56,10 +56,53 @@ function stock_data_reconstruct(raw_data_list)
 } /* function - stock_data_reconstruct */
 
 //******************************************
-// getDatafromWeb()
+// getStockData()
 //******************************************
-function getDatafromWeb(options, callback_web)
+function getStockData(stockId, year, month)
 {
+    /* try open on local DB */
+    let db_dir = './db/';
+    let stock_db_file  = db_dir + stockId + '/' + year + '_' + month + '.db';
+    let current_month = moment().month() + 1;
+
+    try{
+        let temp_data_dict = readDataDbFile(stock_db_file);
+        return temp_data_dict;    
+    }catch(err){
+        console.log("Get Data from Web:" + stockId);
+        let temp_data_dict = wait.for(getStockDatafromWeb, stockId, year, month);
+        /* Write to local db */
+        if ((month != current_month) && (Object.keys(temp_data_dict).length > 0))
+        {
+            /* Only backup this month before data */ 
+            writeDataDbFile(stockId, year, month, temp_data_dict);
+        }
+        return temp_data_dict;
+    }
+}
+
+//******************************************
+// getStockDatafromWeb()
+//******************************************
+function getStockDatafromWeb(stockId, year, month, callback_web)
+{
+    let body = {'download': '',
+                'query_year': '0', /* 2017, set by main */
+                'query_month' : '0', /* 2, set by main */
+                'CO_ID': '0',  /* 2454, set by main */
+                'query-button' : '%E6%9F%A5%E8%A9%A2'};
+
+    let options = {
+        url : 'http://www.twse.com.tw/ch/trading/exchange/STOCK_DAY/STOCK_DAYMAIN.php',
+        method: "POST",
+        form : body,
+        headers: {'Content-Type' : 'application/x-www-form-urlencoded'}
+    };
+
+   options.form.CO_ID = stockId;
+   options.form.query_year = year;            
+   options.form.query_month = month;
+
    let stock_data_dict = {};
    request( options, function (error, response, body) {
         
@@ -300,17 +343,6 @@ function stockAnalyze_02(stock_id, data_dict, only_check_today)
 
         if (only_check_today == true)
         {
-            //console.log("[MA60]" + result_MA.MA60 + " [GPP]" + data_dict[key].GSP + " [CP]" + data_dict[key].CP); 
-            /* 2017.3.30 Konrad Debug */
-            if (key != '106/03/31' && key != '查無資料！')
-            {
-                 console.log('ERROR - stock_id:' + stock_id);
-                 console.log('ERROR - key:' + key);
-                 console.dir(key_list);
-                 console.dir(data_dict);
-                 process.exit(1);
-            }
-            
             data_dict[key].MA = result_MA;            
             break;
         }
@@ -318,7 +350,7 @@ function stockAnalyze_02(stock_id, data_dict, only_check_today)
         i++;
         if (i > 60)
         {
-            /* Just analyze  one quarter (60 Days) */ 
+            /* Just analyze  one quarter (60 Days) MA60 */ 
             break;               
         }/* if */ 
     } /* for */
@@ -335,35 +367,37 @@ function stockAnalyze_02(stock_id, data_dict, only_check_today)
 //******************************************
 function readDataDbFile(file_name)
 {
-	console.log('readDataDbFile()+++');
-	var content = fs.readFileSync(file_name);
-	//console.log(content);
-	var db = JSON.parse(content.toString());
-	return db;	
+    try {
+	    //console.log('readDataDbFile()+++');
+	    var content = fs.readFileSync(file_name);
+	    //console.log(content);
+	    var db = JSON.parse(content.toString());        
+	    return db;	
+    }catch(err){        
+        throw err;
+    }
 }
 
 //******************************************
 // writeDataDbFile()
 //******************************************
-function writeDataDbFile(stockId, data_dict, callback_wrtdb)
+function writeDataDbFile(stockId, year, month, dataObj)
 {
-	var db_dir = './db/';
+	let db_dir = './db/';
     if (!fs.existsSync(db_dir)) {
     	fs.mkdirSync(db_dir);
     }
 
-    //for (var i = 0 ; i < data_dict.lenght ; i++)
-    for (key in data_dict)
-    {		
-        var temp_key_list = key.split("/");
-        temp_key_list[0] = (parseInt(temp_key_list[0]) + 1911).toString();
-        var file_date_tag = temp_key_list.join('/');
-	    dbfile = db_dir + 'TwStock_' + stockId + '_'  + moment(new Date(file_date_tag)).format('YYYYMMDD') + '.db';
-	    fs.writeFileSync(dbfile, JSON.stringify(data_dict[key]));
-	    console.log('Write File DB:' + dbfile);
-    }		
+    let stock_db_dir = db_dir + stockId + '/';
+    if (!fs.existsSync(stock_db_dir)) {
+    	fs.mkdirSync(stock_db_dir);
+    }
+
+	var dbfile = stock_db_dir + '/'  + year + '_' + month + '.db';
+	fs.writeFileSync(dbfile, JSON.stringify(dataObj));
+	console.log('Write File DB:' + dbfile);		
     
-    return callback_wrtdb(null);
+    return 0;
 }
 
 function writeCheckResultFile(stockObj)
@@ -372,13 +406,14 @@ function writeCheckResultFile(stockObj)
     if (!fs.existsSync(db_dir)) {
     	fs.mkdirSync(db_dir);
     }
-
-    let daily_dir = db_dir + moment(new Date()).format('YYMMDD') + '/';
+    
+    let stock_result_dir = stockObj.stockDailyInfo.date.replace(/\//g, '-');
+    let daily_dir = db_dir + stock_result_dir + '/';
     if (!fs.existsSync(daily_dir)) {
     	fs.mkdirSync(daily_dir);
     }
     	            
-	let dbfile = daily_dir  + '' + stockObj.stockInfo.stockId + '_'  + moment(new Date()).format('MMDD') + '.db';
+	let dbfile = daily_dir  + '' + stockObj.stockInfo.stockId + '.db';
 	fs.writeFileSync(dbfile, JSON.stringify(stockObj));
 	console.log('Write File DB:' + dbfile);
     
@@ -394,23 +429,10 @@ function stockDailyChecker(stockInfo)
     let YEAR = moment().year();
     let stockId = stockInfo.stockId;
 
-    let body = {  'download': '',
-                'query_year': '0', /* 2017, set by main */
-                'query_month' : '0', /* 2, set by main */
-                'CO_ID': '0',  /* 2454, set by main */
-                'query-button' : '%E6%9F%A5%E8%A9%A2'};
-
-    let options_default = {
-        url : 'http://www.twse.com.tw/ch/trading/exchange/STOCK_DAY/STOCK_DAYMAIN.php',
-        method: "POST",
-        form : body,
-        headers: {'Content-Type' : 'application/x-www-form-urlencoded'}
-
-    };
 
     let data_dict = {};
     /* Get 6 month */
-    for(let i=0 ; i<5 ; i++ )
+    for(let i=0 ; i<6 ; i++ )
     {
         let data_month_int = parseInt(MONTH) - i;
         let data_year_int = parseInt(YEAR);
@@ -418,30 +440,21 @@ function stockDailyChecker(stockInfo)
             data_month_int = data_month_int + 12;
             data_year_int = data_year_int - 1;
         } 
-        options_default.form.CO_ID = stockId;
-        options_default.form.query_year = data_year_int.toString();            
-        options_default.form.query_month = data_month_int.toString();
-        console.log("[StockId]" + stockId + "[YEAR]:" + options_default.form.query_year + " [MONTH]:" + options_default.form.query_month + ' [i]:' + i);
+        
+        let query_year = data_year_int.toString();            
+        let query_month = data_month_int.toString();
+        //console.log("[StockId]" + stockId + "[YEAR]:" + options_default.form.query_year + " [MONTH]:" + options_default.form.query_month + ' [i]:' + i);
         
         let temp_data_dict;
-        /*
-        pool.acquire(function() {
-            try{
-                temp_data_dict = wait.for(getDatafromWeb, options_default);      
-            } catch(err){
-                console.log(err);                       
-            }    
-            pool.release();
-        });
-        */
-            try{
-                temp_data_dict = wait.for(getDatafromWeb, options_default);     
-                console.log("stockDailyChecker()@-1 [dick Len]:" + Object.keys(data_dict).length + ' [temp len]:' + Object.keys(temp_data_dict).length + ' [SotckId]:' + stockId + ' [i]:' + i);     
-                data_dict = merge(data_dict, temp_data_dict);            
-                console.log("stockDailyChecker()@-2 [dick Len]:" + Object.keys(data_dict).length + ' [temp len]:' + Object.keys(temp_data_dict).length + ' [SotckId]:' + stockId + ' [i]:' + i);  
-            } catch(err){
-                console.log(err);                       
-            }
+
+        try{            
+            temp_data_dict = getStockData(stockId, query_year, query_month);
+            //console.log("stockDailyChecker()@-1 [dick Len]:" + Object.keys(data_dict).length + ' [temp len]:' + Object.keys(temp_data_dict).length + ' [SotckId]:' + stockId + ' [i]:' + i);     
+            data_dict = merge(data_dict, temp_data_dict);            
+            //console.log("stockDailyChecker()@-2 [dick Len]:" + Object.keys(data_dict).length + ' [temp len]:' + Object.keys(temp_data_dict).length + ' [SotckId]:' + stockId + ' [i]:' + i);  
+        } catch(err){
+            console.log(err);                       
+        } /* try-catch */
 
         /* Merge Data Dict */
 
