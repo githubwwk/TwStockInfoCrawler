@@ -38,8 +38,8 @@ function stock_data_reconstruct(raw_data_list)
             stock_data.OP = row_data_list[3]; /* Open Price ?�盤??*/
             stock_data.DH = row_data_list[4]; /* Day High ?�高價 */ 
             stock_data.DL = row_data_list[5]; /* Day Low ?�低價 */ 
-            stock_data.CP = parseFloat(row_data_list[6]); /* Closing Price ?�盤??*/ 
-            stock_data.GS = parseFloat(row_data_list[7]); /* Gross Spread:漲�??�差 */ 
+            stock_data.CP = parseFloat(row_data_list[6].replace(/,/g, '')); /* Closing Price ?�盤??*/ 
+            stock_data.GS = parseFloat(row_data_list[7].replace(/,/g, '')); /* Gross Spread:漲�??�差 */ 
             stock_data.GSP =  (stock_data.GS/(stock_data.CP-stock_data.GS)*100).toFixed(1); /* Gross Spread percentage */ 
             stock_data.NT = row_data_list[8]; /* Number of Transactions ?�交筆數 */
        }catch(err){
@@ -258,22 +258,22 @@ function stockAnalyze_01(stock_id, data_dict, callback_analyze)
     return callback_analyze(null, result);
 }
 
-function check_TO_times(i, data_dict, key_list)
+function check_TV_times(i, data_dict, key_list)
 {
     try {
-         var TOMA_05 = Math.round((data_dict[key_list[i+1]].TO + 
-                                   data_dict[key_list[i+2]].TO +
-                                   data_dict[key_list[i+3]].TO + 
-                                   data_dict[key_list[i+4]].TO +  
-                                   data_dict[key_list[i+5]].TO)/5);  
+         var TVMA_05 = Math.round((data_dict[key_list[i+1]].TV + 
+                                   data_dict[key_list[i+2]].TV +
+                                   data_dict[key_list[i+3]].TV + 
+                                   data_dict[key_list[i+4]].TV +  
+                                   data_dict[key_list[i+5]].TV)/5);  
 
          //if (data_dict[key_list[i]].TO > TOMA_05)
          {                            
-            var TO_times = (data_dict[key_list[i]].TO / TOMA_05).toFixed(1);                  
+            var TV_times = (data_dict[key_list[i]].TV / TVMA_05).toFixed(1);                  
             var result = {};
-            result.TO_times = TO_times;            
-            result.TOMA_05 = TOMA_05;
-            result.TO = data_dict[key_list[i]].TO;          
+            result.TV_times = TV_times;            
+            result.TVMA_05 = TVMA_05;
+            result.TV = data_dict[key_list[i]].TV;          
             return result;            
          }/* if */
     } catch(err){
@@ -322,8 +322,8 @@ function stockAnalyze_02(stock_id, data_dict, only_check_today)
              console.log("[GS]" + data_dict[key].GS); 
              console.log("[GSP]" + data_dict[key].GSP + '%'); 
              console.log(result_MA);         
-             let result_times = check_TO_times(i, data_dict, key_list);                   
-             console.log("[TO Times]:" + result_times.TO_times);
+             data_dict[key].TV_times = check_TV_times(i, data_dict, key_list);                   
+             //console.log("[TO Times]:" + result_times.TO_times);
              keyMoment = true;
              data_dict[key].type = 'N->P';
              keyDate = key;
@@ -334,8 +334,8 @@ function stockAnalyze_02(stock_id, data_dict, only_check_today)
              console.log("[GS]" + data_dict[key].GS); 
              console.log("[GSP]" + data_dict[key].GSP + '%'); 
              console.log(result_MA);
-             let result_times = check_TO_times(i, data_dict, key_list);      
-             console.log("[TO Times]:" + result_times.TO_times);             
+             data_dict[key].TV_times = check_TV_times(i, data_dict, key_list);      
+             //console.log("[TO Times]:" + result_times.TO_times);             
              keyMoment = true;
              data_dict[key].type = 'P->N';
              keyDate = key;

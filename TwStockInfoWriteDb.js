@@ -98,7 +98,7 @@ function writeResultToDBServer(date_folder)
    
     let db_date_key = changeTwDateToDcDate(date_folder);    
     resultDbObj.date = db_date_key;
-    resultDbObj.data = JSON.stringify(result_list);      
+    resultDbObj.data = JSON.stringify(result_list);          
     db.stockDailyInfoIsExist(db_date_key, resultDbObj);    
 }
 //******************************************
