@@ -81,43 +81,58 @@ function changeTwDateToDcDate(twDate)
    return temp_date_list.join('-');
 }
 
-function writeResultToDBServer(date_folder)
+function writeResultToDBServer(dateStr, date_folder, dbCheckExist)
 {
     var result_list = []; 
     var resultDbObj = {};
-    let dir = g_RESULT_DIR + date_folder + '/';
-    let result_db_list = fs.readdirSync(dir); 
+    let result_db_list = fs.readdirSync(date_folder); 
         
     for (let result_db of result_db_list)
     {
-        console.log("Dir:" + result_db);
-        let file_path = dir + result_db;
+        //console.log("Dir:" + result_db);
+        let file_path = date_folder + '/' + result_db;
         let result = readDataDbFile(file_path);
         result_list.push(result);          
     } 
    
-    let db_date_key = changeTwDateToDcDate(date_folder);    
+    let db_date_key = changeTwDateToDcDate(dateStr);    
     resultDbObj.date = db_date_key;
     resultDbObj.data = JSON.stringify(result_list);          
-    db.stockDailyInfoIsExist(db_date_key, resultDbObj);    
+    //db.stockDailyA02_IsExist(db_date_key, resultDbObj);    
+    dbCheckExist(db_date_key, resultDbObj);    
 }
+
+//******************************************
+// Stock A0X Write DB API
+//******************************************
+function writeResult(typeName)
+{
+    
+    let analyze_type_result_folder = g_RESULT_DIR + typeName;
+    let result_db_folder_list = fs.readdirSync(analyze_type_result_folder); 
+        
+    for (let result_date_folder of result_db_folder_list)
+    {
+        //console.log("Dir:" + result_date_folder);
+        let date_data_dir = analyze_type_result_folder + '/' + result_date_folder;
+        let db_IsExit = eval('db.stockDaily' + typeName + '_IsExist;');
+        //let db_IsExit = db.stockDailyA01_IsExist;
+        var dateStr = result_date_folder;
+        writeResultToDBServer(dateStr, date_data_dir, db_IsExit);
+    } 
+    return 0;
+}
+
 //******************************************
 // main()
 //******************************************
 
 function main()
-{     
-    
-
+{         
     function exec(callback_fiber)
     {                  
-        let result_db_folder_list = fs.readdirSync(g_RESULT_DIR); 
-        
-        for (let result_date_folder of result_db_folder_list)
-        {
-            console.log("Dir:" + result_date_folder);
-            writeResultToDBServer(result_date_folder);
-        } 
+        writeResult('A01');
+        writeResult('A02');
         
         return callback_fiber(null);
     }   
